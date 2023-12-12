@@ -267,6 +267,22 @@ class Typewriter {
     return this;
   }
 
+/**
+   * Delete the last X characters.
+   * Opposed to using the deleteAll event still having a small delay depending on the event loop ticker,
+   * using clear removes the items immediately.
+   *
+   * @param {Number} amount the number of characters to delete. A value of 0 or smaller will remove all written characters
+   * @param {Boolean} callOnRemove whether to call the onRemove callback for each node or not. Defaults to false
+   * @return {Typewriter}
+   *
+   * @author Kilian Brachtendorf <kilian@brachtendorf.dev>
+   */
+  clear = (amount = 0, callOnRemove = false) => {
+    this.addEventToQueue(EVENT_NAMES.CLEAR, { amount, callOnRemove });
+    return this;
+  };
+
   /**
    * Add delete all characters to event queue
    *
@@ -696,6 +712,39 @@ class Typewriter {
               eventArgs: {},
             });
           }
+        }
+        break;
+      }
+case EVENT_NAMES.CLEAR: {
+        //Clear all nodes without delay.
+        //Instead of creating a new event for each operation we perform it immediately as the event loop has it's own delay.
+
+        const { visibleNodes } = this.state;
+        const copiedNodes = [...visibleNodes];
+
+        //How many elements do we want to delete?
+        const { amount, callOnRemove } = eventArgs;
+        if (copiedNodes.length > 0) {
+
+          const numOfNodesToDelete = amount && amount > 0 && amount < copiedNodes.length ? amount : copiedNodes.length;
+
+          for (let i = 0; i < numOfNodesToDelete;) {
+            if(copiedNodes.length > 0){
+              const { type, node, character } = copiedNodes.pop();
+
+              if(callOnRemove && this.options.onRemoveNode && typeof this.options.onRemoveNode === 'function'){
+                this.options.onRemoveNode(node, character);
+              }
+
+              node.parentNode.removeChild(node);
+              if(type === VISIBLE_NODE_TYPES.TEXT_NODE){
+                i++;
+              }
+            }else{
+              break;
+            }
+          }
+          this.state.visibleNodes = copiedNodes;
         }
         break;
       }
